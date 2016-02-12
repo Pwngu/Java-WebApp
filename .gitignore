@@ -1,0 +1,17 @@
+# ignore all hidden files except gitignore
+.*
+!.gitignore
+
+# ignore Eclipse and Intellij binaries + Gradle build dir
+/bin
+/out
+/build
+
+# ignore Intellij Project files
+*.iml
+*.ipr
+*.iws
+
+# ignore Astah Locks
+*.lock
+
