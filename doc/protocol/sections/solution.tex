@@ -5,62 +5,158 @@
 
 GitHub Repository Link: https://github.com/Pwngu/Java-WebApp
 
-\subsection{Tabelle}
-\renewcommand{\arraystretch}{1.5}
-\begin{table}[!h]
-	\center
-	\begin{tabular}{ | @{\hspace{3mm}} c @{\hspace{3mm}} | @{\hspace{3mm}} l @{\hspace{3mm}} | }
-		\hline Header & Kopf\\ \hline\hline
-		\textbf{Lorem} & Ipsum dolor sit amet, consetetur sadipscing elitr\\ \hline
-		\textbf{Ipsum} & At vero eos et accusam et justo duo dolores et ea rebum.\\
-			& Stet clita kasd gubergren, no sea takimata sanctus\\ \hline
-		\textbf{Dolor} & Consetetur sadipscing elitr, sed diam nonumy\\\hline
-	\end{tabular}
-	\caption{Lorem ipsum dolor sit amet \cite{tanenbaum2007verteilte}}
-	\label{methoden}
-\end{table}
+\subsection{Projekt Setup \& Deployment}
+Da ich das Projekt mit Gradle umsetzen wollte, habe ich ein Github Repository mit Tutorial gefunden, welches das aufsetzen eines einfaches Projektes gut erklärt. \cite{gradle-jersey-tutorial}.\\
+Für das Tutorial wurde der Tomcat Application Server \cite{tomcat-hp} verwendet. 
 
-\subsection{Aufzählung}
+\subsubsection{Probleme beim Deployment}
 
-\begin{itemize}
-	\item \textbf{Lorem ipsum:} dolor sit amet, consetetur sadipscing elitr
-	\item sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat
-	\item ut labore et dolore magna aliquyam erat, sed diam voluptua
-\end{itemize}
+Beim deployment auf den Tomcat Server ist ein ziemliches Problem aufgetreten; der Tomcat Server scheint den konfigurierten Pfad nicht zu registrieren. Bei folgender Konfiguration (mit Projektnamen \texttt{java-web}):
 
-\subsection{Code}
+\begin{lstlisting}[style=XML, caption=web.xml]
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://java.sun.com/xml/ns/javaee"
+         xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+         xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+         id="WebApp_ID" version="2.5">
+    <display-name>Java Web</display-name>
+    <servlet>
+        <servlet-name>jersey</servlet-name>
+        <servlet-class>com.sun.jersey.spi.container.servlet.ServletContainer</servlet-class>
+        <init-param>
+            <param-name>com.sun.jersey.config.property.packages</param-name>
+            <param-value>at.tgm.ablk</param-value>
+        </init-param>
 
-At vero eos et accusam et justo duo dolores et ea rebum.
+        <init-param>
+            <param-name>com.sun.jersey.api.json.POJOMappingFeature</param-name>
+            <param-value>true</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>jersey</servlet-name>
+        <url-pattern>/rest/*</url-pattern>
+    </servlet-mapping>
+</web-app>
+\end{lstlisting}
 
-\begin{lstlisting}[style=Java, caption=Implizite Transaktion \cite{tanenbaum2007verteilte}]
-try{
-   gTransCur.begin();
-   //Perform the operation inside the transaction
-   not_registered = 
-       gRegistrarObjRef.register_for_courses(student_id,selected_course_numbers);
+\begin{lstlisting}[style=Java, caption=Java Testfile]
+package at.tgm.ablk;
 
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
 
-   if (not_registered != null)
+@Path("login")
+public class LoginResource {
 
-     //If operation executes with no errors, commit the transaction
-     boolean report_heuristics = true;
-     gTransCur.commit(report_heuristics);
-
-   } else gTransCur.rollback();
-
-
-} catch(org.omg.CosTransactions.NoTransaction nte) {
-    System.err.println("NoTransaction: " + nte);
-    System.exit(1);
-} catch(org.omg.CosTransactions.SubtransactionsUnavailable e) {
-    System.err.println("Subtransactions Unavailable: " + e);
-    System.exit(1);
-} catch(org.omg.CosTransactions.HeuristicHazard e) {
-    System.err.println("HeuristicHazard: " + e);
-    System.exit(1);
-} catch(org.omg.CosTransactions.HeuristicMixed e) {
-    System.err.println("HeuristicMixed: " + e);
-    System.exit(1);
+    @GET
+    @Path("/do")
+    @Produces(MediaType.TEXT_PLAIN)
+    public String getLogin() {
+        return "hello";
+    }
 }
 \end{lstlisting}
+
+sollte das Interface unter \texttt{localhost:8080/java-web/rest/login/do} erreichbar sein, jedoch bekomme ich immer, auch bei mehreren Variationen des Pfades eine 404 Response.\\
+Auch in den Tomcat log files ließ sich nichts auffälliges finden.\\
+Aufgrund dieses Fehlers konnte ich das Programm nicht wirklich testen.
+
+\subsection{Datenbank}
+
+Für die Aufgabe habe ich mich für eine \textit{SQLite} Datenbank entschieden und verwende einen dazugehörigen JDBC Treiber \cite{sqlite-jdbc}. Dieser erstellt automatisch ein Datenbankfile an der gegebenen Stelle.
+
+\begin{lstlisting}[style=Java, caption=Aufbau der SQLite Datenbenkverbindung]
+try {
+
+	Class.forName("org.sqlite.JDBC");
+    connection = DriverManager.getConnection("jdbc:sqlite:user.db");
+    connection.setAutoCommit(false);
+} catch(Exception ex) {
+
+	LOG.fatal("Error while connecting to Database", ex);
+   	System.exit(
+}
+
+LOG.info("Opened database connection successfully");
+\end{lstlisting}
+
+\subsection{REST Interface}
+
+Sämtliche Kommunikation über das REST-Interface verläuft über JSON. Um JSON Requests akzeptieren zu können, ist es notwendig zuerst eine Klasse, welches das zu empfangende JSON repräsentiert, zu erstellen (Hier \texttt{at.tgm.ablk.rest.User}).
+
+\subsubsection{Registrierung}
+
+Bei der Registrierung muss eine JSON - POST request an den Server geschickt werden, jeweils mit der E-Mail und dem Passwort. Wenn die Registrierung erfolgreich war, wird mit einer 201 response geantwortet, ansonsten mit 401.\\
+Derzeit wird noch nicht überprüft, ob die übergebene E-Mail bereits registriert ist.
+
+\begin{lstlisting}[style=Java, caption=REST User Registration]
+@POST
+@Consumes({"application/json"})
+@Path("/register")
+public Response register(final User user) {
+
+    if(user.email == null || user.password == null)
+        return Response.status(401).header("message", "Invalid registration data").build();
+
+    try(Statement stmt = database.getConnection().createStatement();
+        ResultSet res = stmt.executeQuery(String.format("INSERT INTO web_user (email, password)" +
+                                                        "VALUES (%s, %s)", user.email, user.password))) {
+
+        database.getConnection().commit();
+        return Response.status(201).header("message", "Successfully registered user").build();
+
+    } catch(SQLException ex) {
+        LOG.error("Database error while registering", ex);
+        return Response.status(500).header("message", "SQL Error, check server log").build();
+
+    } catch(Exception ex) {
+        LOG.error("Error while registering", ex);
+        return Response.status(500).header("message", "Exception, check server log").build();
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Login}
+
+Beim Login wird, genauso wie bei der Registrierung, eine JSON - POST request erwartet. Hier muss das JSON file auch eine E-Mail Adresse und ein Passwort enthalten, danach wird überprüft, ob der angegebene Nutzer existiert, wenn ja, wird das Passwort überprüft und bei Erfolg ein 200 response mit Willkommensnachricht verschickt.
+
+\begin{lstlisting}[style=Java, caption=REST User Login]
+@POST
+@Consumes({"application/json"})
+@Path("/login")
+public Response login(final User user) {
+
+    if(user.email == null || user.password == null)
+        return Response.status(403).header("message", "Invalid credentials").build();
+
+    try(Statement stmt = database.getConnection().createStatement();
+        ResultSet res = stmt.executeQuery(String.format("SELECT email, password FROM web_user " +
+                                                        "WHERE email = %s", user.email))) {
+
+        while(res.next()) {
+
+            if(res.getString("password").equals(user.password))
+                return Response.status(200).header("message", "Successfully logged in").build();
+        }
+
+        // not registered
+        return Response.status(403).header("message", "Invalid credentials").build();
+
+    } catch(SQLException ex) {
+        LOG.error("Database error while logging in", ex);
+        return Response.status(500).header("message", "SQL Error, check server log").build();
+
+    } catch(Exception ex) {
+        LOG.error("Error while logging in", ex);
+        return Response.status(500).header("message", "Exception, check server log").build();
+    }
+}
+\end{lstlisting}
+
+
 
